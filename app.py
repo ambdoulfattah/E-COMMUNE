@@ -2,60 +2,96 @@
 import streamlit as st
 import pandas as pd
 
-# Configuration de la page
 st.set_page_config(
     page_title="E-Commune",
     page_icon="🏛️",
     layout="wide"
 )
 
-# Données fictives pour notre prototype
-demandes = pd.DataFrame([
-    {"ID": "DEM-001", "Type": "Attestation de résidence", "Statut": "En cours", "Jour": 1},
-    {"ID": "DEM-002", "Type": "Légalisation de signature", "Statut": "Terminée", "Jour": 2},
-    {"ID": "DEM-003", "Type": "Attestation administrative", "Statut": "En attente", "Jour": 3},
-    {"ID": "DEM-004", "Type": "Attestation de résidence", "Statut": "En cours", "Jour": 4},
-    {"ID": "DEM-005", "Type": "Légalisation de signature", "Statut": "Terminée", "Jour": 2},
-    {"ID": "DEM-006", "Type": "Attestation administrative", "Statut": "En attente", "Jour": 5},
-    {"ID": "DEM-007", "Type": "Attestation de résidence", "Statut": "En cours", "Jour": 1},
-    {"ID": "DEM-008", "Type": "Attestation administrative", "Statut": "Terminée", "Jour": 2},
-])
+# Initialisation des données fictives
+if "demandes" not in st.session_state:
+    st.session_state.demandes = pd.DataFrame([
+        {"ID": "DEM-001", "Type": "Attestation de résidence", "Statut": "En cours"},
+        {"ID": "DEM-002", "Type": "Légalisation de signature", "Statut": "Terminée"},
+        {"ID": "DEM-003", "Type": "Attestation administrative", "Statut": "En attente"},
+        {"ID": "DEM-004", "Type": "Attestation de résidence", "Statut": "En cours"},
+        {"ID": "DEM-005", "Type": "Légalisation de signature", "Statut": "Terminée"},
+        {"ID": "DEM-006", "Type": "Attestation administrative", "Statut": "En attente"},
+        {"ID": "DEM-007", "Type": "Attestation de résidence", "Statut": "En cours"},
+        {"ID": "DEM-008", "Type": "Attestation administrative", "Statut": "Terminée"},
+    ])
 
-# En-tête
 st.title("🏛️ E-Commune")
-st.subheader("Plateforme de gestion des demandes administratives")
-st.caption("Prototype pédagogique — données entièrement fictives")
+st.caption("Gestion numérique des demandes administratives — prototype pédagogique")
 
-# Indicateurs
-total = len(demandes)
-terminees = (demandes["Statut"] == "Terminée").sum()
-en_cours = (demandes["Statut"] == "En cours").sum()
-en_attente = (demandes["Statut"] == "En attente").sum()
+# Formulaire de création
+st.header("Nouvelle demande")
 
-col1, col2, col3, col4 = st.columns(4)
+with st.form("formulaire_demande"):
+    nom = st.text_input("Nom du demandeur")
+    type_demande = st.selectbox(
+        "Type de demande",
+        [
+            "Attestation de résidence",
+            "Légalisation de signature",
+            "Attestation administrative"
+        ]
+    )
+    description = st.text_area("Description ou informations complémentaires")
+    envoyer = st.form_submit_button("Enregistrer la demande")
 
-col1.metric("Total des demandes", total)
-col2.metric("Terminées", int(terminees))
-col3.metric("En cours", int(en_cours))
-col4.metric("En attente", int(en_attente))
+    if envoyer:
+        if not nom.strip():
+            st.error("Veuillez saisir le nom du demandeur.")
+        else:
+            numero = len(st.session_state.demandes) + 1
+            nouvelle_demande = {
+                "ID": f"DEM-{numero:03d}",
+                "Type": type_demande,
+                "Statut": "En attente"
+            }
+
+            st.session_state.demandes = pd.concat(
+                [
+                    st.session_state.demandes,
+                    pd.DataFrame([nouvelle_demande])
+                ],
+                ignore_index=True
+            )
+
+            st.session_state[f"nom_{numero}"] = nom.strip()
+            st.session_state[f"description_{numero}"] = description
+            st.success(f"Demande DEM-{numero:03d} enregistrée !")
 
 st.divider()
 
-# Graphique des statuts
-st.subheader("Répartition des demandes")
-repartition = demandes["Statut"].value_counts()
-st.bar_chart(repartition)
+# Indicateurs
+demandes = st.session_state.demandes
 
-# Tableau des demandes
+total = len(demandes)
+terminees = int((demandes["Statut"] == "Terminée").sum())
+en_cours = int((demandes["Statut"] == "En cours").sum())
+en_attente = int((demandes["Statut"] == "En attente").sum())
+
+st.header("Tableau de bord")
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total des demandes", total)
+col2.metric("Terminées", terminees)
+col3.metric("En cours", en_cours)
+col4.metric("En attente", en_attente)
+
+st.subheader("Répartition des demandes")
+st.bar_chart(demandes["Statut"].value_counts())
+
 st.subheader("Suivi des demandes")
 filtre = st.selectbox(
     "Filtrer par statut",
     ["Toutes", "En cours", "En attente", "Terminée"]
 )
 
-if filtre == "Toutes":
-    affichage = demandes
-else:
-    affichage = demandes[demandes["Statut"] == filtre]
+affichage = demandes if filtre == "Toutes" else demandes[
+    demandes["Statut"] == filtre
+]
 
 st.dataframe(affichage, use_container_width=True, hide_index=True)
